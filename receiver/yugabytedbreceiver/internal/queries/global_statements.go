@@ -9,8 +9,8 @@ package queries
 // ============================================================================
 
 const (
-	// Top10SlowQueries retrieves query statistics from the last 15 minutes
-	Top10SlowQueries = `
+	// LatencyCalculationQuery retrieves query statistics from the last 15 minutes
+	LatencyCalculationQuery = `
 		SELECT
 			query,
 			calls,

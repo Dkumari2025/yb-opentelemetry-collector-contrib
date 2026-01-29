@@ -348,7 +348,7 @@ func (r *yugabytedbReceiver) collectActiveConnectionsByUsername(ctx context.Cont
 
 // collectQueryStatements collects query statistics from global_pg_stat_statements
 func (r *yugabytedbReceiver) collectQueryStatements(ctx context.Context, db *sql.DB, now pcommon.Timestamp) {
-	rows, err := db.QueryContext(ctx, queries.Top10SlowQueries)
+	rows, err := db.QueryContext(ctx, queries.LatencyCalculationQuery)
 	if err != nil {
 		r.logger.Error("failed to query statement statistics", zap.Error(err))
 		return
