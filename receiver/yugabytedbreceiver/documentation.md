@@ -41,6 +41,31 @@ The number of database connections by state and user.
 | connection.state | The state of the database connection (active, idle, idle_in_transaction, waiting) | Any Str | Recommended |
 | connection.user | The database user associated with the connection | Any Str | Recommended |
 
+### yugabytedb.long_query.count
+
+Number of long-running queries.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {queries} | Gauge | Int | Alpha |
+
+### yugabytedb.long_query.duration
+
+Duration of long-running queries.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| query.text | The SQL query text | Any Str | Recommended |
+| database.name | The database name | Any Str | Recommended |
+| application.name | The application name | Any Str | Recommended |
+| process.pid | The process ID | Any Int | Recommended |
+
 ### yugabytedb.pg_stat_activity.active_connections
 
 The total number of active connections to YugabyteDB.
@@ -49,6 +74,24 @@ The total number of active connections to YugabyteDB.
 | ---- | ----------- | ---------- | --------- |
 | {connections} | Gauge | Int | Alpha |
 
+### yugabytedb.pg_stat_activity.query_duration
+
+Duration of currently running queries in YugabyteDB.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| query.text | The SQL query text | Any Str | Recommended |
+| database.name | The database name | Any Str | Recommended |
+| application.name | The application name | Any Str | Recommended |
+| process.pid | The process ID | Any Int | Recommended |
+| connection.user | The database user associated with the connection | Any Str | Recommended |
+
 ### yugabytedb.pg_stat_activity.running_queries
 
 The number of currently running queries in YugabyteDB.
@@ -56,3 +99,176 @@ The number of currently running queries in YugabyteDB.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {queries} | Gauge | Int | Alpha |
+
+### yugabytedb.query.calls
+
+Number of times the query was executed.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {calls} | Sum | Int | Cumulative | true | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| query.text | The SQL query text | Any Str | Recommended |
+
+### yugabytedb.query.latency.p90
+
+90th percentile query latency.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| query.text | The SQL query text | Any Str | Recommended |
+
+### yugabytedb.query.latency.p95
+
+95th percentile query latency.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| query.text | The SQL query text | Any Str | Recommended |
+
+### yugabytedb.query.latency.p99
+
+99th percentile query latency.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| query.text | The SQL query text | Any Str | Recommended |
+
+### yugabytedb.query.mean_time
+
+Average execution time for the query.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| query.text | The SQL query text | Any Str | Recommended |
+
+### yugabytedb.query.total_time
+
+Total execution time for the query.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| ms | Sum | Double | Cumulative | true | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| query.text | The SQL query text | Any Str | Recommended |
+
+### yugabytedb.statement.calls
+
+Total number of calls by statement type.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {calls} | Sum | Int | Cumulative | true | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| statement.type | The SQL statement type (INSERT, SELECT, UPDATE, DELETE, UPSERT, OTHER) | Any Str | Recommended |
+
+### yugabytedb.statement.latency.p90
+
+90th percentile latency by statement type.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| statement.type | The SQL statement type (INSERT, SELECT, UPDATE, DELETE, UPSERT, OTHER) | Any Str | Recommended |
+
+### yugabytedb.statement.latency.p95
+
+95th percentile latency by statement type.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| statement.type | The SQL statement type (INSERT, SELECT, UPDATE, DELETE, UPSERT, OTHER) | Any Str | Recommended |
+
+### yugabytedb.statement.latency.p99
+
+99th percentile latency by statement type.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Double | Alpha |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level |
+| ---- | ----------- | ------ | -------- |
+| statement.type | The SQL statement type (INSERT, SELECT, UPDATE, DELETE, UPSERT, OTHER) | Any Str | Recommended |
+
+### yugabytedb.total_qpm
+
+Total queries per minute across all statement types.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {queries}/min | Gauge | Double | Alpha |
+
+### yugabytedb.tserver.count
+
+Number of tablet servers in the cluster.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {servers} | Gauge | Int | Alpha |
+
+### yugabytedb.tserver.status
+
+Status of individual tablet servers in the cluster (always 1 to indicate presence).
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {status} | Gauge | Int | Alpha |
+
+## Resource Attributes
+
+| Name | Description | Values | Enabled |
+| ---- | ----------- | ------ | ------- |
+| yugabytedb.node.cloud | The cloud provider hosting the YugabyteDB node (e.g., gcp, aws, azure) | Any Str | true |
+| yugabytedb.node.host | The hostname or IP address of the YugabyteDB node | Any Str | true |
+| yugabytedb.node.region | The cloud region where the YugabyteDB node is located | Any Str | true |
+| yugabytedb.node.zone | The availability zone where the YugabyteDB node is located | Any Str | true |

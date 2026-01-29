@@ -42,6 +42,15 @@ func TestMetricsBuilder(t *testing.T) {
 			resAttrsSet: testDataSetNone,
 			expectEmpty: true,
 		},
+		{
+			name:        "filter_set_include",
+			resAttrsSet: testDataSetAll,
+		},
+		{
+			name:        "filter_set_exclude",
+			resAttrsSet: testDataSetAll,
+			expectEmpty: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,13 +78,82 @@ func TestMetricsBuilder(t *testing.T) {
 
 			defaultMetricsCount++
 			allMetricsCount++
+			mb.RecordYugabytedbLongQueryCountDataPoint(ts, 1)
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbLongQueryDurationDataPoint(ts, 1, "query.text-val", "database.name-val", "application.name-val", 11)
+
+			defaultMetricsCount++
+			allMetricsCount++
 			mb.RecordYugabytedbPgStatActivityActiveConnectionsDataPoint(ts, 1)
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbPgStatActivityQueryDurationDataPoint(ts, 1, "query.text-val", "database.name-val", "application.name-val", 11, "connection.user-val")
 
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordYugabytedbPgStatActivityRunningQueriesDataPoint(ts, 1)
 
-			res := pcommon.NewResource()
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbQueryCallsDataPoint(ts, 1, "query.text-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbQueryLatencyP90DataPoint(ts, 1, "query.text-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbQueryLatencyP95DataPoint(ts, 1, "query.text-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbQueryLatencyP99DataPoint(ts, 1, "query.text-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbQueryMeanTimeDataPoint(ts, 1, "query.text-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbQueryTotalTimeDataPoint(ts, 1, "query.text-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbStatementCallsDataPoint(ts, 1, "statement.type-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbStatementLatencyP90DataPoint(ts, 1, "statement.type-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbStatementLatencyP95DataPoint(ts, 1, "statement.type-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbStatementLatencyP99DataPoint(ts, 1, "statement.type-val")
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbTotalQpmDataPoint(ts, 1)
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbTserverCountDataPoint(ts, 1)
+
+			defaultMetricsCount++
+			allMetricsCount++
+			mb.RecordYugabytedbTserverStatusDataPoint(ts, 1)
+
+			rb := mb.NewResourceBuilder()
+			rb.SetYugabytedbNodeCloud("yugabytedb.node.cloud-val")
+			rb.SetYugabytedbNodeHost("yugabytedb.node.host-val")
+			rb.SetYugabytedbNodeRegion("yugabytedb.node.region-val")
+			rb.SetYugabytedbNodeZone("yugabytedb.node.zone-val")
+			res := rb.Emit()
 			metrics := mb.Emit(WithResource(res))
 
 			if tt.expectEmpty {
@@ -130,6 +208,42 @@ func TestMetricsBuilder(t *testing.T) {
 					attrVal, ok = dp.Attributes().Get("connection.user")
 					assert.True(t, ok)
 					assert.Equal(t, "connection.user-val", attrVal.Str())
+				case "yugabytedb.long_query.count":
+					assert.False(t, validatedMetrics["yugabytedb.long_query.count"], "Found a duplicate in the metrics slice: yugabytedb.long_query.count")
+					validatedMetrics["yugabytedb.long_query.count"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "Number of long-running queries.", ms.At(i).Description())
+					assert.Equal(t, "{queries}", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+				case "yugabytedb.long_query.duration":
+					assert.False(t, validatedMetrics["yugabytedb.long_query.duration"], "Found a duplicate in the metrics slice: yugabytedb.long_query.duration")
+					validatedMetrics["yugabytedb.long_query.duration"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "Duration of long-running queries.", ms.At(i).Description())
+					assert.Equal(t, "s", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "query.text-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("database.name")
+					assert.True(t, ok)
+					assert.Equal(t, "database.name-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("application.name")
+					assert.True(t, ok)
+					assert.Equal(t, "application.name-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("process.pid")
+					assert.True(t, ok)
+					assert.EqualValues(t, 11, attrVal.Int())
 				case "yugabytedb.pg_stat_activity.active_connections":
 					assert.False(t, validatedMetrics["yugabytedb.pg_stat_activity.active_connections"], "Found a duplicate in the metrics slice: yugabytedb.pg_stat_activity.active_connections")
 					validatedMetrics["yugabytedb.pg_stat_activity.active_connections"] = true
@@ -142,6 +256,33 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+				case "yugabytedb.pg_stat_activity.query_duration":
+					assert.False(t, validatedMetrics["yugabytedb.pg_stat_activity.query_duration"], "Found a duplicate in the metrics slice: yugabytedb.pg_stat_activity.query_duration")
+					validatedMetrics["yugabytedb.pg_stat_activity.query_duration"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "Duration of currently running queries in YugabyteDB.", ms.At(i).Description())
+					assert.Equal(t, "s", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "query.text-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("database.name")
+					assert.True(t, ok)
+					assert.Equal(t, "database.name-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("application.name")
+					assert.True(t, ok)
+					assert.Equal(t, "application.name-val", attrVal.Str())
+					attrVal, ok = dp.Attributes().Get("process.pid")
+					assert.True(t, ok)
+					assert.EqualValues(t, 11, attrVal.Int())
+					attrVal, ok = dp.Attributes().Get("connection.user")
+					assert.True(t, ok)
+					assert.Equal(t, "connection.user-val", attrVal.Str())
 				case "yugabytedb.pg_stat_activity.running_queries":
 					assert.False(t, validatedMetrics["yugabytedb.pg_stat_activity.running_queries"], "Found a duplicate in the metrics slice: yugabytedb.pg_stat_activity.running_queries")
 					validatedMetrics["yugabytedb.pg_stat_activity.running_queries"] = true
@@ -149,6 +290,198 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
 					assert.Equal(t, "The number of currently running queries in YugabyteDB.", ms.At(i).Description())
 					assert.Equal(t, "{queries}", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+				case "yugabytedb.query.calls":
+					assert.False(t, validatedMetrics["yugabytedb.query.calls"], "Found a duplicate in the metrics slice: yugabytedb.query.calls")
+					validatedMetrics["yugabytedb.query.calls"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
+					assert.Equal(t, "Number of times the query was executed.", ms.At(i).Description())
+					assert.Equal(t, "{calls}", ms.At(i).Unit())
+					assert.True(t, ms.At(i).Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, ms.At(i).Sum().AggregationTemporality())
+					dp := ms.At(i).Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "query.text-val", attrVal.Str())
+				case "yugabytedb.query.latency.p90":
+					assert.False(t, validatedMetrics["yugabytedb.query.latency.p90"], "Found a duplicate in the metrics slice: yugabytedb.query.latency.p90")
+					validatedMetrics["yugabytedb.query.latency.p90"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "90th percentile query latency.", ms.At(i).Description())
+					assert.Equal(t, "ms", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "query.text-val", attrVal.Str())
+				case "yugabytedb.query.latency.p95":
+					assert.False(t, validatedMetrics["yugabytedb.query.latency.p95"], "Found a duplicate in the metrics slice: yugabytedb.query.latency.p95")
+					validatedMetrics["yugabytedb.query.latency.p95"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "95th percentile query latency.", ms.At(i).Description())
+					assert.Equal(t, "ms", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "query.text-val", attrVal.Str())
+				case "yugabytedb.query.latency.p99":
+					assert.False(t, validatedMetrics["yugabytedb.query.latency.p99"], "Found a duplicate in the metrics slice: yugabytedb.query.latency.p99")
+					validatedMetrics["yugabytedb.query.latency.p99"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "99th percentile query latency.", ms.At(i).Description())
+					assert.Equal(t, "ms", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "query.text-val", attrVal.Str())
+				case "yugabytedb.query.mean_time":
+					assert.False(t, validatedMetrics["yugabytedb.query.mean_time"], "Found a duplicate in the metrics slice: yugabytedb.query.mean_time")
+					validatedMetrics["yugabytedb.query.mean_time"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "Average execution time for the query.", ms.At(i).Description())
+					assert.Equal(t, "ms", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "query.text-val", attrVal.Str())
+				case "yugabytedb.query.total_time":
+					assert.False(t, validatedMetrics["yugabytedb.query.total_time"], "Found a duplicate in the metrics slice: yugabytedb.query.total_time")
+					validatedMetrics["yugabytedb.query.total_time"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
+					assert.Equal(t, "Total execution time for the query.", ms.At(i).Description())
+					assert.Equal(t, "ms", ms.At(i).Unit())
+					assert.True(t, ms.At(i).Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, ms.At(i).Sum().AggregationTemporality())
+					dp := ms.At(i).Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "query.text-val", attrVal.Str())
+				case "yugabytedb.statement.calls":
+					assert.False(t, validatedMetrics["yugabytedb.statement.calls"], "Found a duplicate in the metrics slice: yugabytedb.statement.calls")
+					validatedMetrics["yugabytedb.statement.calls"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Sum().DataPoints().Len())
+					assert.Equal(t, "Total number of calls by statement type.", ms.At(i).Description())
+					assert.Equal(t, "{calls}", ms.At(i).Unit())
+					assert.True(t, ms.At(i).Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, ms.At(i).Sum().AggregationTemporality())
+					dp := ms.At(i).Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+					attrVal, ok := dp.Attributes().Get("statement.type")
+					assert.True(t, ok)
+					assert.Equal(t, "statement.type-val", attrVal.Str())
+				case "yugabytedb.statement.latency.p90":
+					assert.False(t, validatedMetrics["yugabytedb.statement.latency.p90"], "Found a duplicate in the metrics slice: yugabytedb.statement.latency.p90")
+					validatedMetrics["yugabytedb.statement.latency.p90"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "90th percentile latency by statement type.", ms.At(i).Description())
+					assert.Equal(t, "ms", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("statement.type")
+					assert.True(t, ok)
+					assert.Equal(t, "statement.type-val", attrVal.Str())
+				case "yugabytedb.statement.latency.p95":
+					assert.False(t, validatedMetrics["yugabytedb.statement.latency.p95"], "Found a duplicate in the metrics slice: yugabytedb.statement.latency.p95")
+					validatedMetrics["yugabytedb.statement.latency.p95"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "95th percentile latency by statement type.", ms.At(i).Description())
+					assert.Equal(t, "ms", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("statement.type")
+					assert.True(t, ok)
+					assert.Equal(t, "statement.type-val", attrVal.Str())
+				case "yugabytedb.statement.latency.p99":
+					assert.False(t, validatedMetrics["yugabytedb.statement.latency.p99"], "Found a duplicate in the metrics slice: yugabytedb.statement.latency.p99")
+					validatedMetrics["yugabytedb.statement.latency.p99"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "99th percentile latency by statement type.", ms.At(i).Description())
+					assert.Equal(t, "ms", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					attrVal, ok := dp.Attributes().Get("statement.type")
+					assert.True(t, ok)
+					assert.Equal(t, "statement.type-val", attrVal.Str())
+				case "yugabytedb.total_qpm":
+					assert.False(t, validatedMetrics["yugabytedb.total_qpm"], "Found a duplicate in the metrics slice: yugabytedb.total_qpm")
+					validatedMetrics["yugabytedb.total_qpm"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "Total queries per minute across all statement types.", ms.At(i).Description())
+					assert.Equal(t, "{queries}/min", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+				case "yugabytedb.tserver.count":
+					assert.False(t, validatedMetrics["yugabytedb.tserver.count"], "Found a duplicate in the metrics slice: yugabytedb.tserver.count")
+					validatedMetrics["yugabytedb.tserver.count"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "Number of tablet servers in the cluster.", ms.At(i).Description())
+					assert.Equal(t, "{servers}", ms.At(i).Unit())
+					dp := ms.At(i).Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+				case "yugabytedb.tserver.status":
+					assert.False(t, validatedMetrics["yugabytedb.tserver.status"], "Found a duplicate in the metrics slice: yugabytedb.tserver.status")
+					validatedMetrics["yugabytedb.tserver.status"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, ms.At(i).Type())
+					assert.Equal(t, 1, ms.At(i).Gauge().DataPoints().Len())
+					assert.Equal(t, "Status of individual tablet servers in the cluster (always 1 to indicate presence).", ms.At(i).Description())
+					assert.Equal(t, "{status}", ms.At(i).Unit())
 					dp := ms.At(i).Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
 					assert.Equal(t, ts, dp.Timestamp())
