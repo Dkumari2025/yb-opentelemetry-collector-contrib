@@ -28,8 +28,30 @@ func TestMetricsBuilderConfig(t *testing.T) {
 				Metrics: MetricsConfig{
 					YugabytedbActiveUsersCount:                MetricConfig{Enabled: true},
 					YugabytedbConnectionCount:                 MetricConfig{Enabled: true},
+					YugabytedbLongQueryCount:                  MetricConfig{Enabled: true},
+					YugabytedbLongQueryDuration:               MetricConfig{Enabled: true},
 					YugabytedbPgStatActivityActiveConnections: MetricConfig{Enabled: true},
+					YugabytedbPgStatActivityQueryDuration:     MetricConfig{Enabled: true},
 					YugabytedbPgStatActivityRunningQueries:    MetricConfig{Enabled: true},
+					YugabytedbQueryCalls:                      MetricConfig{Enabled: true},
+					YugabytedbQueryLatencyP90:                 MetricConfig{Enabled: true},
+					YugabytedbQueryLatencyP95:                 MetricConfig{Enabled: true},
+					YugabytedbQueryLatencyP99:                 MetricConfig{Enabled: true},
+					YugabytedbQueryMeanTime:                   MetricConfig{Enabled: true},
+					YugabytedbQueryTotalTime:                  MetricConfig{Enabled: true},
+					YugabytedbStatementCalls:                  MetricConfig{Enabled: true},
+					YugabytedbStatementLatencyP90:             MetricConfig{Enabled: true},
+					YugabytedbStatementLatencyP95:             MetricConfig{Enabled: true},
+					YugabytedbStatementLatencyP99:             MetricConfig{Enabled: true},
+					YugabytedbTotalQpm:                        MetricConfig{Enabled: true},
+					YugabytedbTserverCount:                    MetricConfig{Enabled: true},
+					YugabytedbTserverStatus:                   MetricConfig{Enabled: true},
+				},
+				ResourceAttributes: ResourceAttributesConfig{
+					YugabytedbNodeCloud:  ResourceAttributeConfig{Enabled: true},
+					YugabytedbNodeHost:   ResourceAttributeConfig{Enabled: true},
+					YugabytedbNodeRegion: ResourceAttributeConfig{Enabled: true},
+					YugabytedbNodeZone:   ResourceAttributeConfig{Enabled: true},
 				},
 			},
 		},
@@ -39,8 +61,30 @@ func TestMetricsBuilderConfig(t *testing.T) {
 				Metrics: MetricsConfig{
 					YugabytedbActiveUsersCount:                MetricConfig{Enabled: false},
 					YugabytedbConnectionCount:                 MetricConfig{Enabled: false},
+					YugabytedbLongQueryCount:                  MetricConfig{Enabled: false},
+					YugabytedbLongQueryDuration:               MetricConfig{Enabled: false},
 					YugabytedbPgStatActivityActiveConnections: MetricConfig{Enabled: false},
+					YugabytedbPgStatActivityQueryDuration:     MetricConfig{Enabled: false},
 					YugabytedbPgStatActivityRunningQueries:    MetricConfig{Enabled: false},
+					YugabytedbQueryCalls:                      MetricConfig{Enabled: false},
+					YugabytedbQueryLatencyP90:                 MetricConfig{Enabled: false},
+					YugabytedbQueryLatencyP95:                 MetricConfig{Enabled: false},
+					YugabytedbQueryLatencyP99:                 MetricConfig{Enabled: false},
+					YugabytedbQueryMeanTime:                   MetricConfig{Enabled: false},
+					YugabytedbQueryTotalTime:                  MetricConfig{Enabled: false},
+					YugabytedbStatementCalls:                  MetricConfig{Enabled: false},
+					YugabytedbStatementLatencyP90:             MetricConfig{Enabled: false},
+					YugabytedbStatementLatencyP95:             MetricConfig{Enabled: false},
+					YugabytedbStatementLatencyP99:             MetricConfig{Enabled: false},
+					YugabytedbTotalQpm:                        MetricConfig{Enabled: false},
+					YugabytedbTserverCount:                    MetricConfig{Enabled: false},
+					YugabytedbTserverStatus:                   MetricConfig{Enabled: false},
+				},
+				ResourceAttributes: ResourceAttributesConfig{
+					YugabytedbNodeCloud:  ResourceAttributeConfig{Enabled: false},
+					YugabytedbNodeHost:   ResourceAttributeConfig{Enabled: false},
+					YugabytedbNodeRegion: ResourceAttributeConfig{Enabled: false},
+					YugabytedbNodeZone:   ResourceAttributeConfig{Enabled: false},
 				},
 			},
 		},
@@ -48,7 +92,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := loadMetricsBuilderConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(MetricConfig{}))
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(MetricConfig{}, ResourceAttributeConfig{}))
 			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
 		})
 	}
@@ -61,5 +105,54 @@ func loadMetricsBuilderConfig(t *testing.T, name string) MetricsBuilderConfig {
 	require.NoError(t, err)
 	cfg := DefaultMetricsBuilderConfig()
 	require.NoError(t, sub.Unmarshal(&cfg, confmap.WithIgnoreUnused()))
+	return cfg
+}
+
+func TestResourceAttributesConfig(t *testing.T) {
+	tests := []struct {
+		name string
+		want ResourceAttributesConfig
+	}{
+		{
+			name: "default",
+			want: DefaultResourceAttributesConfig(),
+		},
+		{
+			name: "all_set",
+			want: ResourceAttributesConfig{
+				YugabytedbNodeCloud:  ResourceAttributeConfig{Enabled: true},
+				YugabytedbNodeHost:   ResourceAttributeConfig{Enabled: true},
+				YugabytedbNodeRegion: ResourceAttributeConfig{Enabled: true},
+				YugabytedbNodeZone:   ResourceAttributeConfig{Enabled: true},
+			},
+		},
+		{
+			name: "none_set",
+			want: ResourceAttributesConfig{
+				YugabytedbNodeCloud:  ResourceAttributeConfig{Enabled: false},
+				YugabytedbNodeHost:   ResourceAttributeConfig{Enabled: false},
+				YugabytedbNodeRegion: ResourceAttributeConfig{Enabled: false},
+				YugabytedbNodeZone:   ResourceAttributeConfig{Enabled: false},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := loadResourceAttributesConfig(t, tt.name)
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(ResourceAttributeConfig{}))
+			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
+		})
+	}
+}
+
+func loadResourceAttributesConfig(t *testing.T, name string) ResourceAttributesConfig {
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
+	require.NoError(t, err)
+	sub, err := cm.Sub(name)
+	require.NoError(t, err)
+	sub, err = sub.Sub("resource_attributes")
+	require.NoError(t, err)
+	cfg := DefaultResourceAttributesConfig()
+	require.NoError(t, sub.Unmarshal(&cfg))
 	return cfg
 }

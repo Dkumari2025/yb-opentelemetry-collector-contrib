@@ -8,12 +8,45 @@ status:
   codeowners:
     active: [rmeena]
 
+resource_attributes:
+  yugabytedb.node.cloud:
+    description: The cloud provider hosting the YugabyteDB node (e.g., gcp, aws, azure)
+    enabled: true
+    type: string
+  yugabytedb.node.host:
+    description: The hostname or IP address of the YugabyteDB node
+    enabled: true
+    type: string
+  yugabytedb.node.region:
+    description: The cloud region where the YugabyteDB node is located
+    enabled: true
+    type: string
+  yugabytedb.node.zone:
+    description: The availability zone where the YugabyteDB node is located
+    enabled: true
+    type: string
+
 attributes:
+  application.name:
+    description: The application name
+    type: string
   connection.state:
     description: The state of the database connection (active, idle, idle_in_transaction, waiting)
     type: string
   connection.user:
     description: The database user associated with the connection
+    type: string
+  database.name:
+    description: The database name
+    type: string
+  process.pid:
+    description: The process ID
+    type: int
+  query.text:
+    description: The SQL query text
+    type: string
+  statement.type:
+    description: The SQL statement type (INSERT, SELECT, UPDATE, DELETE, UPSERT, OTHER)
     type: string
 
 metrics:
@@ -24,7 +57,8 @@ metrics:
     gauge:
       value_type: int
     attributes: [connection.user]
-    stability: alpha
+    stability:
+      level: alpha
   yugabytedb.connection.count:
     enabled: true
     description: The number of database connections by state and user.
@@ -32,18 +66,167 @@ metrics:
     gauge:
       value_type: int
     attributes: [connection.state, connection.user]
-    stability: alpha
+    stability:
+      level: alpha
+  yugabytedb.long_query.count:
+    enabled: true
+    description: Number of long-running queries.
+    unit: "{queries}"
+    gauge:
+      value_type: int
+    stability:
+      level: alpha
+  yugabytedb.long_query.duration:
+    enabled: true
+    description: Duration of long-running queries.
+    unit: s
+    gauge:
+      value_type: double
+    attributes: [query.text, database.name, application.name, process.pid]
+    stability:
+      level: alpha
   yugabytedb.pg_stat_activity.active_connections:
     enabled: true
     description: The total number of active connections to YugabyteDB.
     unit: "{connections}"
     gauge:
       value_type: int
-    stability: alpha
+    stability:
+      level: alpha
+  yugabytedb.pg_stat_activity.query_duration:
+    enabled: true
+    description: Duration of currently running queries in YugabyteDB.
+    unit: s
+    gauge:
+      value_type: double
+    attributes: [query.text, database.name, application.name, process.pid, connection.user]
+    stability:
+      level: alpha
   yugabytedb.pg_stat_activity.running_queries:
     enabled: true
     description: The number of currently running queries in YugabyteDB.
     unit: "{queries}"
     gauge:
       value_type: int
-    stability: alpha
+    stability:
+      level: alpha
+  yugabytedb.query.calls:
+    enabled: true
+    description: Number of times the query was executed.
+    unit: "{calls}"
+    sum:
+      value_type: int
+      monotonic: true
+      aggregation_temporality: cumulative
+    attributes: [query.text]
+    stability:
+      level: alpha
+  yugabytedb.query.latency.p90:
+    enabled: true
+    description: 90th percentile query latency.
+    unit: ms
+    gauge:
+      value_type: double
+    attributes: [query.text]
+    stability:
+      level: alpha
+  yugabytedb.query.latency.p95:
+    enabled: true
+    description: 95th percentile query latency.
+    unit: ms
+    gauge:
+      value_type: double
+    attributes: [query.text]
+    stability:
+      level: alpha
+  yugabytedb.query.latency.p99:
+    enabled: true
+    description: 99th percentile query latency.
+    unit: ms
+    gauge:
+      value_type: double
+    attributes: [query.text]
+    stability:
+      level: alpha
+  yugabytedb.query.mean_time:
+    enabled: true
+    description: Average execution time for the query.
+    unit: ms
+    gauge:
+      value_type: double
+    attributes: [query.text]
+    stability:
+      level: alpha
+  yugabytedb.query.total_time:
+    enabled: true
+    description: Total execution time for the query.
+    unit: ms
+    sum:
+      value_type: double
+      monotonic: true
+      aggregation_temporality: cumulative
+    attributes: [query.text]
+    stability:
+      level: alpha
+  yugabytedb.statement.calls:
+    enabled: true
+    description: Total number of calls by statement type.
+    unit: "{calls}"
+    sum:
+      value_type: int
+      monotonic: true
+      aggregation_temporality: cumulative
+    attributes: [statement.type]
+    stability:
+      level: alpha
+  yugabytedb.statement.latency.p90:
+    enabled: true
+    description: 90th percentile latency by statement type.
+    unit: ms
+    gauge:
+      value_type: double
+    attributes: [statement.type]
+    stability:
+      level: alpha
+  yugabytedb.statement.latency.p95:
+    enabled: true
+    description: 95th percentile latency by statement type.
+    unit: ms
+    gauge:
+      value_type: double
+    attributes: [statement.type]
+    stability:
+      level: alpha
+  yugabytedb.statement.latency.p99:
+    enabled: true
+    description: 99th percentile latency by statement type.
+    unit: ms
+    gauge:
+      value_type: double
+    attributes: [statement.type]
+    stability:
+      level: alpha
+  yugabytedb.total_qpm:
+    enabled: true
+    description: Total queries per minute across all statement types.
+    unit: "{queries}/min"
+    gauge:
+      value_type: double
+    stability:
+      level: alpha
+  yugabytedb.tserver.count:
+    enabled: true
+    description: Number of tablet servers in the cluster.
+    unit: "{servers}"
+    gauge:
+      value_type: int
+    stability:
+      level: alpha
+  yugabytedb.tserver.status:
+    enabled: true
+    description: Status of individual tablet servers in the cluster (always 1 to indicate presence).
+    unit: "{status}"
+    gauge:
+      value_type: int
+    stability:
+      level: alpha
