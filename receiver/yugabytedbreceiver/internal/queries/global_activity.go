@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package queries
+package queries // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/yugabytedbreceiver/internal/queries"
 
 // ============================================================================
 // Global View Queries (cluster-wide mode, use_global_view: true)
