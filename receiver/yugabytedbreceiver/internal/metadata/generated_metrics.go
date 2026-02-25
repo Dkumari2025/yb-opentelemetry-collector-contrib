@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
@@ -18,19 +19,83 @@ var MetricsInfo = metricsInfo{
 	YugabytedbConnectionCount: metricInfo{
 		Name: "yugabytedb.connection.count",
 	},
+	YugabytedbLongQueryCount: metricInfo{
+		Name: "yugabytedb.long_query.count",
+	},
+	YugabytedbLongQueryDuration: metricInfo{
+		Name: "yugabytedb.long_query.duration",
+	},
 	YugabytedbPgStatActivityActiveConnections: metricInfo{
 		Name: "yugabytedb.pg_stat_activity.active_connections",
 	},
+	YugabytedbPgStatActivityQueryDuration: metricInfo{
+		Name: "yugabytedb.pg_stat_activity.query_duration",
+	},
 	YugabytedbPgStatActivityRunningQueries: metricInfo{
 		Name: "yugabytedb.pg_stat_activity.running_queries",
+	},
+	YugabytedbQueryCalls: metricInfo{
+		Name: "yugabytedb.query.calls",
+	},
+	YugabytedbQueryLatencyP90: metricInfo{
+		Name: "yugabytedb.query.latency.p90",
+	},
+	YugabytedbQueryLatencyP95: metricInfo{
+		Name: "yugabytedb.query.latency.p95",
+	},
+	YugabytedbQueryLatencyP99: metricInfo{
+		Name: "yugabytedb.query.latency.p99",
+	},
+	YugabytedbQueryMeanTime: metricInfo{
+		Name: "yugabytedb.query.mean_time",
+	},
+	YugabytedbQueryTotalTime: metricInfo{
+		Name: "yugabytedb.query.total_time",
+	},
+	YugabytedbStatementCalls: metricInfo{
+		Name: "yugabytedb.statement.calls",
+	},
+	YugabytedbStatementLatencyP90: metricInfo{
+		Name: "yugabytedb.statement.latency.p90",
+	},
+	YugabytedbStatementLatencyP95: metricInfo{
+		Name: "yugabytedb.statement.latency.p95",
+	},
+	YugabytedbStatementLatencyP99: metricInfo{
+		Name: "yugabytedb.statement.latency.p99",
+	},
+	YugabytedbTotalQpm: metricInfo{
+		Name: "yugabytedb.total_qpm",
+	},
+	YugabytedbTserverCount: metricInfo{
+		Name: "yugabytedb.tserver.count",
+	},
+	YugabytedbTserverStatus: metricInfo{
+		Name: "yugabytedb.tserver.status",
 	},
 }
 
 type metricsInfo struct {
 	YugabytedbActiveUsersCount                metricInfo
 	YugabytedbConnectionCount                 metricInfo
+	YugabytedbLongQueryCount                  metricInfo
+	YugabytedbLongQueryDuration               metricInfo
 	YugabytedbPgStatActivityActiveConnections metricInfo
+	YugabytedbPgStatActivityQueryDuration     metricInfo
 	YugabytedbPgStatActivityRunningQueries    metricInfo
+	YugabytedbQueryCalls                      metricInfo
+	YugabytedbQueryLatencyP90                 metricInfo
+	YugabytedbQueryLatencyP95                 metricInfo
+	YugabytedbQueryLatencyP99                 metricInfo
+	YugabytedbQueryMeanTime                   metricInfo
+	YugabytedbQueryTotalTime                  metricInfo
+	YugabytedbStatementCalls                  metricInfo
+	YugabytedbStatementLatencyP90             metricInfo
+	YugabytedbStatementLatencyP95             metricInfo
+	YugabytedbStatementLatencyP99             metricInfo
+	YugabytedbTotalQpm                        metricInfo
+	YugabytedbTserverCount                    metricInfo
+	YugabytedbTserverStatus                   metricInfo
 }
 
 type metricInfo struct {
@@ -142,6 +207,109 @@ func newMetricYugabytedbConnectionCount(cfg MetricConfig) metricYugabytedbConnec
 	return m
 }
 
+type metricYugabytedbLongQueryCount struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.long_query.count metric with initial data.
+func (m *metricYugabytedbLongQueryCount) init() {
+	m.data.SetName("yugabytedb.long_query.count")
+	m.data.SetDescription("Number of long-running queries.")
+	m.data.SetUnit("{queries}")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricYugabytedbLongQueryCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbLongQueryCount) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbLongQueryCount) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbLongQueryCount(cfg MetricConfig) metricYugabytedbLongQueryCount {
+	m := metricYugabytedbLongQueryCount{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbLongQueryDuration struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.long_query.duration metric with initial data.
+func (m *metricYugabytedbLongQueryDuration) init() {
+	m.data.SetName("yugabytedb.long_query.duration")
+	m.data.SetDescription("Duration of long-running queries.")
+	m.data.SetUnit("s")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbLongQueryDuration) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, queryTextAttributeValue string, databaseNameAttributeValue string, applicationNameAttributeValue string, processPidAttributeValue int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("query.text", queryTextAttributeValue)
+	dp.Attributes().PutStr("database.name", databaseNameAttributeValue)
+	dp.Attributes().PutStr("application.name", applicationNameAttributeValue)
+	dp.Attributes().PutInt("process.pid", processPidAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbLongQueryDuration) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbLongQueryDuration) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbLongQueryDuration(cfg MetricConfig) metricYugabytedbLongQueryDuration {
+	m := metricYugabytedbLongQueryDuration{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricYugabytedbPgStatActivityActiveConnections struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -185,6 +353,61 @@ func (m *metricYugabytedbPgStatActivityActiveConnections) emit(metrics pmetric.M
 func newMetricYugabytedbPgStatActivityActiveConnections(cfg MetricConfig) metricYugabytedbPgStatActivityActiveConnections {
 	m := metricYugabytedbPgStatActivityActiveConnections{config: cfg}
 
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbPgStatActivityQueryDuration struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.pg_stat_activity.query_duration metric with initial data.
+func (m *metricYugabytedbPgStatActivityQueryDuration) init() {
+	m.data.SetName("yugabytedb.pg_stat_activity.query_duration")
+	m.data.SetDescription("Duration of currently running queries in YugabyteDB.")
+	m.data.SetUnit("s")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbPgStatActivityQueryDuration) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, queryTextAttributeValue string, databaseNameAttributeValue string, applicationNameAttributeValue string, processPidAttributeValue int64, connectionUserAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("query.text", queryTextAttributeValue)
+	dp.Attributes().PutStr("database.name", databaseNameAttributeValue)
+	dp.Attributes().PutStr("application.name", applicationNameAttributeValue)
+	dp.Attributes().PutInt("process.pid", processPidAttributeValue)
+	dp.Attributes().PutStr("connection.user", connectionUserAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbPgStatActivityQueryDuration) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbPgStatActivityQueryDuration) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbPgStatActivityQueryDuration(cfg MetricConfig) metricYugabytedbPgStatActivityQueryDuration {
+	m := metricYugabytedbPgStatActivityQueryDuration{config: cfg}
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
 		m.init()
@@ -242,6 +465,669 @@ func newMetricYugabytedbPgStatActivityRunningQueries(cfg MetricConfig) metricYug
 	return m
 }
 
+type metricYugabytedbQueryCalls struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.query.calls metric with initial data.
+func (m *metricYugabytedbQueryCalls) init() {
+	m.data.SetName("yugabytedb.query.calls")
+	m.data.SetDescription("Number of times the query was executed.")
+	m.data.SetUnit("{calls}")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbQueryCalls) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, queryTextAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+	dp.Attributes().PutStr("query.text", queryTextAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbQueryCalls) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbQueryCalls) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbQueryCalls(cfg MetricConfig) metricYugabytedbQueryCalls {
+	m := metricYugabytedbQueryCalls{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbQueryLatencyP90 struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.query.latency.p90 metric with initial data.
+func (m *metricYugabytedbQueryLatencyP90) init() {
+	m.data.SetName("yugabytedb.query.latency.p90")
+	m.data.SetDescription("90th percentile query latency.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbQueryLatencyP90) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("query.text", queryTextAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbQueryLatencyP90) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbQueryLatencyP90) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbQueryLatencyP90(cfg MetricConfig) metricYugabytedbQueryLatencyP90 {
+	m := metricYugabytedbQueryLatencyP90{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbQueryLatencyP95 struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.query.latency.p95 metric with initial data.
+func (m *metricYugabytedbQueryLatencyP95) init() {
+	m.data.SetName("yugabytedb.query.latency.p95")
+	m.data.SetDescription("95th percentile query latency.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbQueryLatencyP95) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("query.text", queryTextAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbQueryLatencyP95) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbQueryLatencyP95) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbQueryLatencyP95(cfg MetricConfig) metricYugabytedbQueryLatencyP95 {
+	m := metricYugabytedbQueryLatencyP95{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbQueryLatencyP99 struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.query.latency.p99 metric with initial data.
+func (m *metricYugabytedbQueryLatencyP99) init() {
+	m.data.SetName("yugabytedb.query.latency.p99")
+	m.data.SetDescription("99th percentile query latency.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbQueryLatencyP99) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("query.text", queryTextAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbQueryLatencyP99) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbQueryLatencyP99) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbQueryLatencyP99(cfg MetricConfig) metricYugabytedbQueryLatencyP99 {
+	m := metricYugabytedbQueryLatencyP99{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbQueryMeanTime struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.query.mean_time metric with initial data.
+func (m *metricYugabytedbQueryMeanTime) init() {
+	m.data.SetName("yugabytedb.query.mean_time")
+	m.data.SetDescription("Average execution time for the query.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbQueryMeanTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("query.text", queryTextAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbQueryMeanTime) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbQueryMeanTime) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbQueryMeanTime(cfg MetricConfig) metricYugabytedbQueryMeanTime {
+	m := metricYugabytedbQueryMeanTime{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbQueryTotalTime struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.query.total_time metric with initial data.
+func (m *metricYugabytedbQueryTotalTime) init() {
+	m.data.SetName("yugabytedb.query.total_time")
+	m.data.SetDescription("Total execution time for the query.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbQueryTotalTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("query.text", queryTextAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbQueryTotalTime) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbQueryTotalTime) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbQueryTotalTime(cfg MetricConfig) metricYugabytedbQueryTotalTime {
+	m := metricYugabytedbQueryTotalTime{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbStatementCalls struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.statement.calls metric with initial data.
+func (m *metricYugabytedbStatementCalls) init() {
+	m.data.SetName("yugabytedb.statement.calls")
+	m.data.SetDescription("Total number of calls by statement type.")
+	m.data.SetUnit("{calls}")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbStatementCalls) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, statementTypeAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+	dp.Attributes().PutStr("statement.type", statementTypeAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbStatementCalls) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbStatementCalls) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbStatementCalls(cfg MetricConfig) metricYugabytedbStatementCalls {
+	m := metricYugabytedbStatementCalls{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbStatementLatencyP90 struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.statement.latency.p90 metric with initial data.
+func (m *metricYugabytedbStatementLatencyP90) init() {
+	m.data.SetName("yugabytedb.statement.latency.p90")
+	m.data.SetDescription("90th percentile latency by statement type.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbStatementLatencyP90) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, statementTypeAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("statement.type", statementTypeAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbStatementLatencyP90) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbStatementLatencyP90) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbStatementLatencyP90(cfg MetricConfig) metricYugabytedbStatementLatencyP90 {
+	m := metricYugabytedbStatementLatencyP90{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbStatementLatencyP95 struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.statement.latency.p95 metric with initial data.
+func (m *metricYugabytedbStatementLatencyP95) init() {
+	m.data.SetName("yugabytedb.statement.latency.p95")
+	m.data.SetDescription("95th percentile latency by statement type.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbStatementLatencyP95) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, statementTypeAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("statement.type", statementTypeAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbStatementLatencyP95) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbStatementLatencyP95) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbStatementLatencyP95(cfg MetricConfig) metricYugabytedbStatementLatencyP95 {
+	m := metricYugabytedbStatementLatencyP95{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbStatementLatencyP99 struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.statement.latency.p99 metric with initial data.
+func (m *metricYugabytedbStatementLatencyP99) init() {
+	m.data.SetName("yugabytedb.statement.latency.p99")
+	m.data.SetDescription("99th percentile latency by statement type.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricYugabytedbStatementLatencyP99) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, statementTypeAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("statement.type", statementTypeAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbStatementLatencyP99) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbStatementLatencyP99) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbStatementLatencyP99(cfg MetricConfig) metricYugabytedbStatementLatencyP99 {
+	m := metricYugabytedbStatementLatencyP99{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbTotalQpm struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.total_qpm metric with initial data.
+func (m *metricYugabytedbTotalQpm) init() {
+	m.data.SetName("yugabytedb.total_qpm")
+	m.data.SetDescription("Total queries per minute across all statement types.")
+	m.data.SetUnit("{queries}/min")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricYugabytedbTotalQpm) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbTotalQpm) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbTotalQpm) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbTotalQpm(cfg MetricConfig) metricYugabytedbTotalQpm {
+	m := metricYugabytedbTotalQpm{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbTserverCount struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.tserver.count metric with initial data.
+func (m *metricYugabytedbTserverCount) init() {
+	m.data.SetName("yugabytedb.tserver.count")
+	m.data.SetDescription("Number of tablet servers in the cluster.")
+	m.data.SetUnit("{servers}")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricYugabytedbTserverCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbTserverCount) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbTserverCount) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbTserverCount(cfg MetricConfig) metricYugabytedbTserverCount {
+	m := metricYugabytedbTserverCount{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricYugabytedbTserverStatus struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills yugabytedb.tserver.status metric with initial data.
+func (m *metricYugabytedbTserverStatus) init() {
+	m.data.SetName("yugabytedb.tserver.status")
+	m.data.SetDescription("Status of individual tablet servers in the cluster (always 1 to indicate presence).")
+	m.data.SetUnit("{status}")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricYugabytedbTserverStatus) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricYugabytedbTserverStatus) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricYugabytedbTserverStatus) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricYugabytedbTserverStatus(cfg MetricConfig) metricYugabytedbTserverStatus {
+	m := metricYugabytedbTserverStatus{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 // MetricsBuilder provides an interface for scrapers to report metrics while taking care of all the transformations
 // required to produce metric representation defined in metadata and user config.
 type MetricsBuilder struct {
@@ -250,10 +1136,28 @@ type MetricsBuilder struct {
 	metricsCapacity                                 int                  // maximum observed number of metrics per resource.
 	metricsBuffer                                   pmetric.Metrics      // accumulates metrics data before emitting.
 	buildInfo                                       component.BuildInfo  // contains version information.
+	resourceAttributeIncludeFilter                  map[string]filter.Filter
+	resourceAttributeExcludeFilter                  map[string]filter.Filter
 	metricYugabytedbActiveUsersCount                metricYugabytedbActiveUsersCount
 	metricYugabytedbConnectionCount                 metricYugabytedbConnectionCount
+	metricYugabytedbLongQueryCount                  metricYugabytedbLongQueryCount
+	metricYugabytedbLongQueryDuration               metricYugabytedbLongQueryDuration
 	metricYugabytedbPgStatActivityActiveConnections metricYugabytedbPgStatActivityActiveConnections
+	metricYugabytedbPgStatActivityQueryDuration     metricYugabytedbPgStatActivityQueryDuration
 	metricYugabytedbPgStatActivityRunningQueries    metricYugabytedbPgStatActivityRunningQueries
+	metricYugabytedbQueryCalls                      metricYugabytedbQueryCalls
+	metricYugabytedbQueryLatencyP90                 metricYugabytedbQueryLatencyP90
+	metricYugabytedbQueryLatencyP95                 metricYugabytedbQueryLatencyP95
+	metricYugabytedbQueryLatencyP99                 metricYugabytedbQueryLatencyP99
+	metricYugabytedbQueryMeanTime                   metricYugabytedbQueryMeanTime
+	metricYugabytedbQueryTotalTime                  metricYugabytedbQueryTotalTime
+	metricYugabytedbStatementCalls                  metricYugabytedbStatementCalls
+	metricYugabytedbStatementLatencyP90             metricYugabytedbStatementLatencyP90
+	metricYugabytedbStatementLatencyP95             metricYugabytedbStatementLatencyP95
+	metricYugabytedbStatementLatencyP99             metricYugabytedbStatementLatencyP99
+	metricYugabytedbTotalQpm                        metricYugabytedbTotalQpm
+	metricYugabytedbTserverCount                    metricYugabytedbTserverCount
+	metricYugabytedbTserverStatus                   metricYugabytedbTserverStatus
 }
 
 // MetricBuilderOption applies changes to default metrics builder.
@@ -275,20 +1179,67 @@ func WithStartTime(startTime pcommon.Timestamp) MetricBuilderOption {
 }
 func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, options ...MetricBuilderOption) *MetricsBuilder {
 	mb := &MetricsBuilder{
-		config:                           mbc,
-		startTime:                        pcommon.NewTimestampFromTime(time.Now()),
-		metricsBuffer:                    pmetric.NewMetrics(),
-		buildInfo:                        settings.BuildInfo,
-		metricYugabytedbActiveUsersCount: newMetricYugabytedbActiveUsersCount(mbc.Metrics.YugabytedbActiveUsersCount),
-		metricYugabytedbConnectionCount:  newMetricYugabytedbConnectionCount(mbc.Metrics.YugabytedbConnectionCount),
+		config:                            mbc,
+		startTime:                         pcommon.NewTimestampFromTime(time.Now()),
+		metricsBuffer:                     pmetric.NewMetrics(),
+		buildInfo:                         settings.BuildInfo,
+		metricYugabytedbActiveUsersCount:  newMetricYugabytedbActiveUsersCount(mbc.Metrics.YugabytedbActiveUsersCount),
+		metricYugabytedbConnectionCount:   newMetricYugabytedbConnectionCount(mbc.Metrics.YugabytedbConnectionCount),
+		metricYugabytedbLongQueryCount:    newMetricYugabytedbLongQueryCount(mbc.Metrics.YugabytedbLongQueryCount),
+		metricYugabytedbLongQueryDuration: newMetricYugabytedbLongQueryDuration(mbc.Metrics.YugabytedbLongQueryDuration),
 		metricYugabytedbPgStatActivityActiveConnections: newMetricYugabytedbPgStatActivityActiveConnections(mbc.Metrics.YugabytedbPgStatActivityActiveConnections),
+		metricYugabytedbPgStatActivityQueryDuration:     newMetricYugabytedbPgStatActivityQueryDuration(mbc.Metrics.YugabytedbPgStatActivityQueryDuration),
 		metricYugabytedbPgStatActivityRunningQueries:    newMetricYugabytedbPgStatActivityRunningQueries(mbc.Metrics.YugabytedbPgStatActivityRunningQueries),
+		metricYugabytedbQueryCalls:                      newMetricYugabytedbQueryCalls(mbc.Metrics.YugabytedbQueryCalls),
+		metricYugabytedbQueryLatencyP90:                 newMetricYugabytedbQueryLatencyP90(mbc.Metrics.YugabytedbQueryLatencyP90),
+		metricYugabytedbQueryLatencyP95:                 newMetricYugabytedbQueryLatencyP95(mbc.Metrics.YugabytedbQueryLatencyP95),
+		metricYugabytedbQueryLatencyP99:                 newMetricYugabytedbQueryLatencyP99(mbc.Metrics.YugabytedbQueryLatencyP99),
+		metricYugabytedbQueryMeanTime:                   newMetricYugabytedbQueryMeanTime(mbc.Metrics.YugabytedbQueryMeanTime),
+		metricYugabytedbQueryTotalTime:                  newMetricYugabytedbQueryTotalTime(mbc.Metrics.YugabytedbQueryTotalTime),
+		metricYugabytedbStatementCalls:                  newMetricYugabytedbStatementCalls(mbc.Metrics.YugabytedbStatementCalls),
+		metricYugabytedbStatementLatencyP90:             newMetricYugabytedbStatementLatencyP90(mbc.Metrics.YugabytedbStatementLatencyP90),
+		metricYugabytedbStatementLatencyP95:             newMetricYugabytedbStatementLatencyP95(mbc.Metrics.YugabytedbStatementLatencyP95),
+		metricYugabytedbStatementLatencyP99:             newMetricYugabytedbStatementLatencyP99(mbc.Metrics.YugabytedbStatementLatencyP99),
+		metricYugabytedbTotalQpm:                        newMetricYugabytedbTotalQpm(mbc.Metrics.YugabytedbTotalQpm),
+		metricYugabytedbTserverCount:                    newMetricYugabytedbTserverCount(mbc.Metrics.YugabytedbTserverCount),
+		metricYugabytedbTserverStatus:                   newMetricYugabytedbTserverStatus(mbc.Metrics.YugabytedbTserverStatus),
+		resourceAttributeIncludeFilter:                  make(map[string]filter.Filter),
+		resourceAttributeExcludeFilter:                  make(map[string]filter.Filter),
+	}
+	if mbc.ResourceAttributes.YugabytedbNodeCloud.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["yugabytedb.node.cloud"] = filter.CreateFilter(mbc.ResourceAttributes.YugabytedbNodeCloud.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.YugabytedbNodeCloud.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["yugabytedb.node.cloud"] = filter.CreateFilter(mbc.ResourceAttributes.YugabytedbNodeCloud.MetricsExclude)
+	}
+	if mbc.ResourceAttributes.YugabytedbNodeHost.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["yugabytedb.node.host"] = filter.CreateFilter(mbc.ResourceAttributes.YugabytedbNodeHost.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.YugabytedbNodeHost.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["yugabytedb.node.host"] = filter.CreateFilter(mbc.ResourceAttributes.YugabytedbNodeHost.MetricsExclude)
+	}
+	if mbc.ResourceAttributes.YugabytedbNodeRegion.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["yugabytedb.node.region"] = filter.CreateFilter(mbc.ResourceAttributes.YugabytedbNodeRegion.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.YugabytedbNodeRegion.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["yugabytedb.node.region"] = filter.CreateFilter(mbc.ResourceAttributes.YugabytedbNodeRegion.MetricsExclude)
+	}
+	if mbc.ResourceAttributes.YugabytedbNodeZone.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["yugabytedb.node.zone"] = filter.CreateFilter(mbc.ResourceAttributes.YugabytedbNodeZone.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.YugabytedbNodeZone.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["yugabytedb.node.zone"] = filter.CreateFilter(mbc.ResourceAttributes.YugabytedbNodeZone.MetricsExclude)
 	}
 
 	for _, op := range options {
 		op.apply(mb)
 	}
 	return mb
+}
+
+// NewResourceBuilder returns a new resource builder that should be used to build a resource associated with for the emitted metrics.
+func (mb *MetricsBuilder) NewResourceBuilder() *ResourceBuilder {
+	return NewResourceBuilder(mb.config.ResourceAttributes)
 }
 
 // updateCapacity updates max length of metrics and resource attributes that will be used for the slice capacity.
@@ -350,11 +1301,37 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	ils.Metrics().EnsureCapacity(mb.metricsCapacity)
 	mb.metricYugabytedbActiveUsersCount.emit(ils.Metrics())
 	mb.metricYugabytedbConnectionCount.emit(ils.Metrics())
+	mb.metricYugabytedbLongQueryCount.emit(ils.Metrics())
+	mb.metricYugabytedbLongQueryDuration.emit(ils.Metrics())
 	mb.metricYugabytedbPgStatActivityActiveConnections.emit(ils.Metrics())
+	mb.metricYugabytedbPgStatActivityQueryDuration.emit(ils.Metrics())
 	mb.metricYugabytedbPgStatActivityRunningQueries.emit(ils.Metrics())
+	mb.metricYugabytedbQueryCalls.emit(ils.Metrics())
+	mb.metricYugabytedbQueryLatencyP90.emit(ils.Metrics())
+	mb.metricYugabytedbQueryLatencyP95.emit(ils.Metrics())
+	mb.metricYugabytedbQueryLatencyP99.emit(ils.Metrics())
+	mb.metricYugabytedbQueryMeanTime.emit(ils.Metrics())
+	mb.metricYugabytedbQueryTotalTime.emit(ils.Metrics())
+	mb.metricYugabytedbStatementCalls.emit(ils.Metrics())
+	mb.metricYugabytedbStatementLatencyP90.emit(ils.Metrics())
+	mb.metricYugabytedbStatementLatencyP95.emit(ils.Metrics())
+	mb.metricYugabytedbStatementLatencyP99.emit(ils.Metrics())
+	mb.metricYugabytedbTotalQpm.emit(ils.Metrics())
+	mb.metricYugabytedbTserverCount.emit(ils.Metrics())
+	mb.metricYugabytedbTserverStatus.emit(ils.Metrics())
 
 	for _, op := range options {
 		op.apply(rm)
+	}
+	for attr, filter := range mb.resourceAttributeIncludeFilter {
+		if val, ok := rm.Resource().Attributes().Get(attr); ok && !filter.Matches(val.AsString()) {
+			return
+		}
+	}
+	for attr, filter := range mb.resourceAttributeExcludeFilter {
+		if val, ok := rm.Resource().Attributes().Get(attr); ok && filter.Matches(val.AsString()) {
+			return
+		}
 	}
 
 	if ils.Metrics().Len() > 0 {
@@ -383,14 +1360,94 @@ func (mb *MetricsBuilder) RecordYugabytedbConnectionCountDataPoint(ts pcommon.Ti
 	mb.metricYugabytedbConnectionCount.recordDataPoint(mb.startTime, ts, val, connectionStateAttributeValue, connectionUserAttributeValue)
 }
 
+// RecordYugabytedbLongQueryCountDataPoint adds a data point to yugabytedb.long_query.count metric.
+func (mb *MetricsBuilder) RecordYugabytedbLongQueryCountDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricYugabytedbLongQueryCount.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordYugabytedbLongQueryDurationDataPoint adds a data point to yugabytedb.long_query.duration metric.
+func (mb *MetricsBuilder) RecordYugabytedbLongQueryDurationDataPoint(ts pcommon.Timestamp, val float64, queryTextAttributeValue string, databaseNameAttributeValue string, applicationNameAttributeValue string, processPidAttributeValue int64) {
+	mb.metricYugabytedbLongQueryDuration.recordDataPoint(mb.startTime, ts, val, queryTextAttributeValue, databaseNameAttributeValue, applicationNameAttributeValue, processPidAttributeValue)
+}
+
 // RecordYugabytedbPgStatActivityActiveConnectionsDataPoint adds a data point to yugabytedb.pg_stat_activity.active_connections metric.
 func (mb *MetricsBuilder) RecordYugabytedbPgStatActivityActiveConnectionsDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricYugabytedbPgStatActivityActiveConnections.recordDataPoint(mb.startTime, ts, val)
 }
 
+// RecordYugabytedbPgStatActivityQueryDurationDataPoint adds a data point to yugabytedb.pg_stat_activity.query_duration metric.
+func (mb *MetricsBuilder) RecordYugabytedbPgStatActivityQueryDurationDataPoint(ts pcommon.Timestamp, val float64, queryTextAttributeValue string, databaseNameAttributeValue string, applicationNameAttributeValue string, processPidAttributeValue int64, connectionUserAttributeValue string) {
+	mb.metricYugabytedbPgStatActivityQueryDuration.recordDataPoint(mb.startTime, ts, val, queryTextAttributeValue, databaseNameAttributeValue, applicationNameAttributeValue, processPidAttributeValue, connectionUserAttributeValue)
+}
+
 // RecordYugabytedbPgStatActivityRunningQueriesDataPoint adds a data point to yugabytedb.pg_stat_activity.running_queries metric.
 func (mb *MetricsBuilder) RecordYugabytedbPgStatActivityRunningQueriesDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricYugabytedbPgStatActivityRunningQueries.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordYugabytedbQueryCallsDataPoint adds a data point to yugabytedb.query.calls metric.
+func (mb *MetricsBuilder) RecordYugabytedbQueryCallsDataPoint(ts pcommon.Timestamp, val int64, queryTextAttributeValue string) {
+	mb.metricYugabytedbQueryCalls.recordDataPoint(mb.startTime, ts, val, queryTextAttributeValue)
+}
+
+// RecordYugabytedbQueryLatencyP90DataPoint adds a data point to yugabytedb.query.latency.p90 metric.
+func (mb *MetricsBuilder) RecordYugabytedbQueryLatencyP90DataPoint(ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	mb.metricYugabytedbQueryLatencyP90.recordDataPoint(mb.startTime, ts, val, queryTextAttributeValue)
+}
+
+// RecordYugabytedbQueryLatencyP95DataPoint adds a data point to yugabytedb.query.latency.p95 metric.
+func (mb *MetricsBuilder) RecordYugabytedbQueryLatencyP95DataPoint(ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	mb.metricYugabytedbQueryLatencyP95.recordDataPoint(mb.startTime, ts, val, queryTextAttributeValue)
+}
+
+// RecordYugabytedbQueryLatencyP99DataPoint adds a data point to yugabytedb.query.latency.p99 metric.
+func (mb *MetricsBuilder) RecordYugabytedbQueryLatencyP99DataPoint(ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	mb.metricYugabytedbQueryLatencyP99.recordDataPoint(mb.startTime, ts, val, queryTextAttributeValue)
+}
+
+// RecordYugabytedbQueryMeanTimeDataPoint adds a data point to yugabytedb.query.mean_time metric.
+func (mb *MetricsBuilder) RecordYugabytedbQueryMeanTimeDataPoint(ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	mb.metricYugabytedbQueryMeanTime.recordDataPoint(mb.startTime, ts, val, queryTextAttributeValue)
+}
+
+// RecordYugabytedbQueryTotalTimeDataPoint adds a data point to yugabytedb.query.total_time metric.
+func (mb *MetricsBuilder) RecordYugabytedbQueryTotalTimeDataPoint(ts pcommon.Timestamp, val float64, queryTextAttributeValue string) {
+	mb.metricYugabytedbQueryTotalTime.recordDataPoint(mb.startTime, ts, val, queryTextAttributeValue)
+}
+
+// RecordYugabytedbStatementCallsDataPoint adds a data point to yugabytedb.statement.calls metric.
+func (mb *MetricsBuilder) RecordYugabytedbStatementCallsDataPoint(ts pcommon.Timestamp, val int64, statementTypeAttributeValue string) {
+	mb.metricYugabytedbStatementCalls.recordDataPoint(mb.startTime, ts, val, statementTypeAttributeValue)
+}
+
+// RecordYugabytedbStatementLatencyP90DataPoint adds a data point to yugabytedb.statement.latency.p90 metric.
+func (mb *MetricsBuilder) RecordYugabytedbStatementLatencyP90DataPoint(ts pcommon.Timestamp, val float64, statementTypeAttributeValue string) {
+	mb.metricYugabytedbStatementLatencyP90.recordDataPoint(mb.startTime, ts, val, statementTypeAttributeValue)
+}
+
+// RecordYugabytedbStatementLatencyP95DataPoint adds a data point to yugabytedb.statement.latency.p95 metric.
+func (mb *MetricsBuilder) RecordYugabytedbStatementLatencyP95DataPoint(ts pcommon.Timestamp, val float64, statementTypeAttributeValue string) {
+	mb.metricYugabytedbStatementLatencyP95.recordDataPoint(mb.startTime, ts, val, statementTypeAttributeValue)
+}
+
+// RecordYugabytedbStatementLatencyP99DataPoint adds a data point to yugabytedb.statement.latency.p99 metric.
+func (mb *MetricsBuilder) RecordYugabytedbStatementLatencyP99DataPoint(ts pcommon.Timestamp, val float64, statementTypeAttributeValue string) {
+	mb.metricYugabytedbStatementLatencyP99.recordDataPoint(mb.startTime, ts, val, statementTypeAttributeValue)
+}
+
+// RecordYugabytedbTotalQpmDataPoint adds a data point to yugabytedb.total_qpm metric.
+func (mb *MetricsBuilder) RecordYugabytedbTotalQpmDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricYugabytedbTotalQpm.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordYugabytedbTserverCountDataPoint adds a data point to yugabytedb.tserver.count metric.
+func (mb *MetricsBuilder) RecordYugabytedbTserverCountDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricYugabytedbTserverCount.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordYugabytedbTserverStatusDataPoint adds a data point to yugabytedb.tserver.status metric.
+func (mb *MetricsBuilder) RecordYugabytedbTserverStatusDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricYugabytedbTserverStatus.recordDataPoint(mb.startTime, ts, val)
 }
 
 // Reset resets metrics builder to its initial state. It should be used when external metrics source is restarted,

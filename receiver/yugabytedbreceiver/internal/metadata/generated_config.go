@@ -4,6 +4,7 @@ package metadata
 
 import (
 	"go.opentelemetry.io/collector/confmap"
+	"go.opentelemetry.io/collector/filter"
 )
 
 // MetricConfig provides common config for a particular metric.
@@ -30,8 +31,24 @@ func (ms *MetricConfig) Unmarshal(parser *confmap.Conf) error {
 type MetricsConfig struct {
 	YugabytedbActiveUsersCount                MetricConfig `mapstructure:"yugabytedb.active_users.count"`
 	YugabytedbConnectionCount                 MetricConfig `mapstructure:"yugabytedb.connection.count"`
+	YugabytedbLongQueryCount                  MetricConfig `mapstructure:"yugabytedb.long_query.count"`
+	YugabytedbLongQueryDuration               MetricConfig `mapstructure:"yugabytedb.long_query.duration"`
 	YugabytedbPgStatActivityActiveConnections MetricConfig `mapstructure:"yugabytedb.pg_stat_activity.active_connections"`
+	YugabytedbPgStatActivityQueryDuration     MetricConfig `mapstructure:"yugabytedb.pg_stat_activity.query_duration"`
 	YugabytedbPgStatActivityRunningQueries    MetricConfig `mapstructure:"yugabytedb.pg_stat_activity.running_queries"`
+	YugabytedbQueryCalls                      MetricConfig `mapstructure:"yugabytedb.query.calls"`
+	YugabytedbQueryLatencyP90                 MetricConfig `mapstructure:"yugabytedb.query.latency.p90"`
+	YugabytedbQueryLatencyP95                 MetricConfig `mapstructure:"yugabytedb.query.latency.p95"`
+	YugabytedbQueryLatencyP99                 MetricConfig `mapstructure:"yugabytedb.query.latency.p99"`
+	YugabytedbQueryMeanTime                   MetricConfig `mapstructure:"yugabytedb.query.mean_time"`
+	YugabytedbQueryTotalTime                  MetricConfig `mapstructure:"yugabytedb.query.total_time"`
+	YugabytedbStatementCalls                  MetricConfig `mapstructure:"yugabytedb.statement.calls"`
+	YugabytedbStatementLatencyP90             MetricConfig `mapstructure:"yugabytedb.statement.latency.p90"`
+	YugabytedbStatementLatencyP95             MetricConfig `mapstructure:"yugabytedb.statement.latency.p95"`
+	YugabytedbStatementLatencyP99             MetricConfig `mapstructure:"yugabytedb.statement.latency.p99"`
+	YugabytedbTotalQpm                        MetricConfig `mapstructure:"yugabytedb.total_qpm"`
+	YugabytedbTserverCount                    MetricConfig `mapstructure:"yugabytedb.tserver.count"`
+	YugabytedbTserverStatus                   MetricConfig `mapstructure:"yugabytedb.tserver.status"`
 }
 
 func DefaultMetricsConfig() MetricsConfig {
@@ -42,10 +59,109 @@ func DefaultMetricsConfig() MetricsConfig {
 		YugabytedbConnectionCount: MetricConfig{
 			Enabled: true,
 		},
+		YugabytedbLongQueryCount: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbLongQueryDuration: MetricConfig{
+			Enabled: true,
+		},
 		YugabytedbPgStatActivityActiveConnections: MetricConfig{
 			Enabled: true,
 		},
+		YugabytedbPgStatActivityQueryDuration: MetricConfig{
+			Enabled: true,
+		},
 		YugabytedbPgStatActivityRunningQueries: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbQueryCalls: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbQueryLatencyP90: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbQueryLatencyP95: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbQueryLatencyP99: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbQueryMeanTime: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbQueryTotalTime: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbStatementCalls: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbStatementLatencyP90: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbStatementLatencyP95: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbStatementLatencyP99: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbTotalQpm: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbTserverCount: MetricConfig{
+			Enabled: true,
+		},
+		YugabytedbTserverStatus: MetricConfig{
+			Enabled: true,
+		},
+	}
+}
+
+// ResourceAttributeConfig provides common config for a particular resource attribute.
+type ResourceAttributeConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+	// Experimental: MetricsInclude defines a list of filters for attribute values.
+	// If the list is not empty, only metrics with matching resource attribute values will be emitted.
+	MetricsInclude []filter.Config `mapstructure:"metrics_include"`
+	// Experimental: MetricsExclude defines a list of filters for attribute values.
+	// If the list is not empty, metrics with matching resource attribute values will not be emitted.
+	// MetricsInclude has higher priority than MetricsExclude.
+	MetricsExclude []filter.Config `mapstructure:"metrics_exclude"`
+
+	enabledSetByUser bool
+}
+
+func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+	err := parser.Unmarshal(rac)
+	if err != nil {
+		return err
+	}
+	rac.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// ResourceAttributesConfig provides config for yugabytedb resource attributes.
+type ResourceAttributesConfig struct {
+	YugabytedbNodeCloud  ResourceAttributeConfig `mapstructure:"yugabytedb.node.cloud"`
+	YugabytedbNodeHost   ResourceAttributeConfig `mapstructure:"yugabytedb.node.host"`
+	YugabytedbNodeRegion ResourceAttributeConfig `mapstructure:"yugabytedb.node.region"`
+	YugabytedbNodeZone   ResourceAttributeConfig `mapstructure:"yugabytedb.node.zone"`
+}
+
+func DefaultResourceAttributesConfig() ResourceAttributesConfig {
+	return ResourceAttributesConfig{
+		YugabytedbNodeCloud: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		YugabytedbNodeHost: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		YugabytedbNodeRegion: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		YugabytedbNodeZone: ResourceAttributeConfig{
 			Enabled: true,
 		},
 	}
@@ -53,11 +169,13 @@ func DefaultMetricsConfig() MetricsConfig {
 
 // MetricsBuilderConfig is a configuration for yugabytedb metrics builder.
 type MetricsBuilderConfig struct {
-	Metrics MetricsConfig `mapstructure:"metrics"`
+	Metrics            MetricsConfig            `mapstructure:"metrics"`
+	ResourceAttributes ResourceAttributesConfig `mapstructure:"resource_attributes"`
 }
 
 func DefaultMetricsBuilderConfig() MetricsBuilderConfig {
 	return MetricsBuilderConfig{
-		Metrics: DefaultMetricsConfig(),
+		Metrics:            DefaultMetricsConfig(),
+		ResourceAttributes: DefaultResourceAttributesConfig(),
 	}
 }

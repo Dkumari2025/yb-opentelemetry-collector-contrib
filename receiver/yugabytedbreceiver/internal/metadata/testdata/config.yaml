@@ -5,9 +5,50 @@ all_set:
       enabled: true
     yugabytedb.connection.count:
       enabled: true
+    yugabytedb.long_query.count:
+      enabled: true
+    yugabytedb.long_query.duration:
+      enabled: true
     yugabytedb.pg_stat_activity.active_connections:
       enabled: true
+    yugabytedb.pg_stat_activity.query_duration:
+      enabled: true
     yugabytedb.pg_stat_activity.running_queries:
+      enabled: true
+    yugabytedb.query.calls:
+      enabled: true
+    yugabytedb.query.latency.p90:
+      enabled: true
+    yugabytedb.query.latency.p95:
+      enabled: true
+    yugabytedb.query.latency.p99:
+      enabled: true
+    yugabytedb.query.mean_time:
+      enabled: true
+    yugabytedb.query.total_time:
+      enabled: true
+    yugabytedb.statement.calls:
+      enabled: true
+    yugabytedb.statement.latency.p90:
+      enabled: true
+    yugabytedb.statement.latency.p95:
+      enabled: true
+    yugabytedb.statement.latency.p99:
+      enabled: true
+    yugabytedb.total_qpm:
+      enabled: true
+    yugabytedb.tserver.count:
+      enabled: true
+    yugabytedb.tserver.status:
+      enabled: true
+  resource_attributes:
+    yugabytedb.node.cloud:
+      enabled: true
+    yugabytedb.node.host:
+      enabled: true
+    yugabytedb.node.region:
+      enabled: true
+    yugabytedb.node.zone:
       enabled: true
 none_set:
   metrics:
@@ -15,7 +56,84 @@ none_set:
       enabled: false
     yugabytedb.connection.count:
       enabled: false
+    yugabytedb.long_query.count:
+      enabled: false
+    yugabytedb.long_query.duration:
+      enabled: false
     yugabytedb.pg_stat_activity.active_connections:
+      enabled: false
+    yugabytedb.pg_stat_activity.query_duration:
       enabled: false
     yugabytedb.pg_stat_activity.running_queries:
       enabled: false
+    yugabytedb.query.calls:
+      enabled: false
+    yugabytedb.query.latency.p90:
+      enabled: false
+    yugabytedb.query.latency.p95:
+      enabled: false
+    yugabytedb.query.latency.p99:
+      enabled: false
+    yugabytedb.query.mean_time:
+      enabled: false
+    yugabytedb.query.total_time:
+      enabled: false
+    yugabytedb.statement.calls:
+      enabled: false
+    yugabytedb.statement.latency.p90:
+      enabled: false
+    yugabytedb.statement.latency.p95:
+      enabled: false
+    yugabytedb.statement.latency.p99:
+      enabled: false
+    yugabytedb.total_qpm:
+      enabled: false
+    yugabytedb.tserver.count:
+      enabled: false
+    yugabytedb.tserver.status:
+      enabled: false
+  resource_attributes:
+    yugabytedb.node.cloud:
+      enabled: false
+    yugabytedb.node.host:
+      enabled: false
+    yugabytedb.node.region:
+      enabled: false
+    yugabytedb.node.zone:
+      enabled: false
+filter_set_include:
+  resource_attributes:
+    yugabytedb.node.cloud:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+    yugabytedb.node.host:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+    yugabytedb.node.region:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+    yugabytedb.node.zone:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+filter_set_exclude:
+  resource_attributes:
+    yugabytedb.node.cloud:
+      enabled: true
+      metrics_exclude:
+        - strict: "yugabytedb.node.cloud-val"
+    yugabytedb.node.host:
+      enabled: true
+      metrics_exclude:
+        - strict: "yugabytedb.node.host-val"
+    yugabytedb.node.region:
+      enabled: true
+      metrics_exclude:
+        - strict: "yugabytedb.node.region-val"
+    yugabytedb.node.zone:
+      enabled: true
+      metrics_exclude:
+        - strict: "yugabytedb.node.zone-val"
